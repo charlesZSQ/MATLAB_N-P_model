@@ -1,7 +1,6 @@
-function  [y] = outputplot(handles,N,P,style)
+function  [y] = outputplot(handles,p,N,P,style)
 %OUTPUTPLOT 此处显示有关此函数的摘要
 %   此处显示详细说明
-p=0:0.001:0.02;
 
 Poutage=zeros(1,length(p));
 for i = 1:length(p)

@@ -22,7 +22,7 @@ function varargout = N_Pmodel(varargin)
 
 % Edit the above text to modify the response to help N_Pmodel
 
-% Last Modified by GUIDE v2.5 18-Aug-2019 16:38:25
+% Last Modified by GUIDE v2.5 22-Aug-2019 15:38:19
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -59,8 +59,11 @@ handles.output = hObject;
     c2 = struct('N',0,'P',0,'color','green','symbol','x','style','g-x');
     c3 = struct('N',0,'P',0,'color','red','symbol','+','style','r-+');
     c4 = struct('N',0,'P',0,'color','yellow','symbol','o','style','y-o');
-    c5 = struct('N',0,'P',0,'color','blue','symbol','.','style','b- -.');
+    c5 = struct('N',0,'P',0,'color','blue','symbol','.','style','b--.');
     handles.curves = [c1,c2,c3,c4,c5];
+    handles.a = {};
+    handles.p = 0;
+    handles.div = 0;
 
 % Update handles structure
 guidata(hObject, handles);
@@ -105,7 +108,7 @@ y = cell(1,5);
 columnName = {'p'};     %to set column names in table
 for i=1:5
     if (handles.curves(i).P || handles.curves(i).N)~=0
-        y{j} = outputplot(handles.axes1,handles.curves(i).N,handles.curves(i).P,handles.curves(i).style);
+        y{j} = outputplot(handles.axes1,handles.p,handles.curves(i).N,handles.curves(i).P,handles.curves(i).style);
         NP(1,i) = handles.curves(i).N;
         NP(2,i) = handles.curves(i).P;
         columnName{j+1} = handles.curves(i).color;  
@@ -114,7 +117,7 @@ for i=1:5
     end
 end
 
-%dealth with lendgends
+%deal with strings in lendgends 
     Ns = 1;
     for i = 1:5
         if(NP(1,i)~=0)
@@ -132,7 +135,7 @@ end
     end
     i = 1;
     for j = 1:10
-        if(~isempty(Label(i)))
+        if(~isempty(LabelNP{i}))
          Label{i} = LabelNP{j};
          i = i+1;
         end
@@ -147,31 +150,46 @@ end
         end
     end
     
-    for i = 1:5
-        if(~isempty(Label(i)))
-        [a] = legend(handles.axes1,y{i},'location','southwest'); 
-        set(a,'String',Label{i});
+    %create a cell which can include all legends
+    LabelShow = cell(1,Ns-1);
+    
+    for i = 1:(Ns-1)
+        if(~isempty(Label{i})) 
+        LabelShow{1,i} = Label{i};
         end
     end
-    xlabel(handles.axes1,'Unvailability of each gateway');
-    ylabel(handles.axes1,'Availability of feeder link');
-    grid on
+    
+    %to judge whether LabelShow is empty
+    flag = 0;
+    for i = 1:(Ns-1)
+        if (~isempty(LabelShow{i}))
+            flag = 1;
+        end
+    end
+    % if LabelShow is NOT empty,legned the curves.
+    if flag == 1
+        handles.a = legend(handles.axes1,LabelShow,'location','southwest');
+        xlabel(handles.axes1,'Unvailability of each gateway');
+        ylabel(handles.axes1,'Availability of feeder link');
+        grid on
+        %write data to the table 
+        datax = y{1}.XData';
+        datay = zeros(length(datax),5);
+        j = 1;
+        Num = zeros(1,5);
+        for i = 1:5
+            if(~isempty(y{i}))
+            datay(:,j) = (y{i}.YData');
+            j = j+1;
+            Num(1,i) = 1;
+            end
+        end
+        data = [double(datax) double(datay)];
+        set(handles.table,'ColumnName',columnName);
+        set(handles.table,'Data',data);
+    end
 
-    %write data to the table 
-    datax = y{1}.XData';
-    datay = zeros(length(datax),5);
-    j = 1;
-    Num = zeros(1,5);
-    for i = 1:5
-        if(~isempty(y{i}))
-        datay(:,j) = (y{i}.YData');
-        j = j+1;
-        Num(1,i) = 1;
-        end
-    end
-    data = [double(datax) double(datay)];
-    set(handles.table,'ColumnName',columnName);
-    set(handles.table,'Data',data)
+    guidata(hObject, handles);
 
 
 
@@ -253,11 +271,16 @@ function curvenum_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
     
+%show parameters in panel
+    set(handles.pdown,'String',num2str(min(handles.p)));
+    set(handles.pup,'String',num2str(max(handles.p)));
+    set(handles.division,'String',num2str(handles.div));
     curveNum = get(hObject,'Value');
     set(handles.N,'String',num2str(handles.curves(curveNum).N));
     set(handles.P,'String',num2str(handles.curves(curveNum).P));
     set(handles.color,'String',handles.curves(curveNum).color);
     set(handles.symbol,'String',handles.curves(curveNum).symbol);
+    
 % Hints: contents = cellstr(get(hObject,'String')) returns curvenum contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from curvenum
 
@@ -381,8 +404,15 @@ function pushbutton3_Callback(hObject, eventdata, handles)
 % hObject    handle to pushbutton3 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-axes(handles.axes1);
-cla;
+    axes(handles.axes1);
+    cla;
+    delete(handles.a);
+    
+    %empty the table
+    data = cell(5,6);
+    set(handles.table,'Data',data);
+    guidata(hObject, handles);
+
 
 
 % --- Executes on selection change in symbol.
@@ -431,6 +461,10 @@ function pushbutton4_Callback(hObject, eventdata, handles)
     %change the parameters of curves
     handles.curves(curveNum).N = str2double(N);
     handles.curves(curveNum).P = str2double(P);
+    down = str2double(get(handles.pdown,'String'));
+    up = str2double(get(handles.pup,'String'));
+    handles.div = str2double(get(handles.division,'String'));
+    handles.p = down:handles.div:up;
 
     % Update handles structure
     guidata(hObject, handles);
@@ -494,3 +528,90 @@ function togglebutton3_Callback(hObject, eventdata, handles)
         set(handles.helptext,'Visible','off');
     end
 % Hint: get(hObject,'Value') returns toggle state of togglebutton3
+
+
+% --- Executes on button press in pushbutton7.
+function pushbutton7_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton7 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+    
+    %reset all Ns and Ps.
+    for i = 1:5
+        handles.curves(i).N = 0;
+        handles.curves(i).P = 0;
+    end
+    curveNum = get(hObject,'Value');
+    set(handles.N,'String',num2str(handles.curves(curveNum).N));
+    set(handles.P,'String',num2str(handles.curves(curveNum).P));
+    % Update handles structure
+    guidata(hObject, handles);
+
+
+
+function pdown_Callback(hObject, eventdata, handles)
+% hObject    handle to pdown (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of pdown as text
+%        str2double(get(hObject,'String')) returns contents of pdown as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function pdown_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to pdown (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function pup_Callback(hObject, eventdata, handles)
+% hObject    handle to pup (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of pup as text
+%        str2double(get(hObject,'String')) returns contents of pup as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function pup_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to pup (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function division_Callback(hObject, eventdata, handles)
+% hObject    handle to division (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of division as text
+%        str2double(get(hObject,'String')) returns contents of division as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function division_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to division (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
